@@ -303,6 +303,7 @@ from lab22 import modeling as MD
         ([0.0, 0.2, 0.4], [0.0, -0.2, -0.4], "INTENDED"),
         ([0.0, -0.2, -0.4], [0.0, -0.6, -1.2], "LIKELIHOOD DISPLACEMENT"),
         ([0.0, -0.1, -0.2], [0.0, 0.1, 0.2], "FAILURE"),
+        ([0.0, 0.2, 0.4], [0.0, 0.1, 0.2], "AMBIGUOUS"),
     ],
 )
 def test_diagnose(chosen, rejected, label):

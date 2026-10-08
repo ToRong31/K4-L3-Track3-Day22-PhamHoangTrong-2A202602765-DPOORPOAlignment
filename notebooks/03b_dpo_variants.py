@@ -39,6 +39,8 @@ from lab22 import modeling as MD
 
 assert torch.cuda.is_available()
 assert C.SFT_MERGED.exists() and (C.PREF_DIR / "train.parquet").exists(), "Run NB1 + NB2 first"
+C.ensure_dirs()
+C.VARIANTS_DIR.mkdir(parents=True, exist_ok=True)
 
 from datasets import Dataset
 
@@ -86,10 +88,15 @@ for name in [r for r in SELECTED if r in RUNS]:
         "eval_reward_accuracy": ev.get("eval_rewards/accuracies"),
         "eval_chosen_reward": ev.get("eval_rewards/chosen"),
         "eval_rejected_reward": ev.get("eval_rewards/rejected"),
+        "eval_reward_gap": ev.get("eval_rewards/margins"),
         "mean_output_chars": sum(map(len, outputs)) / len(outputs),
         "diagnosis": MD.diagnose(MD.reward_history(trainer.state.log_history))[0],
     }
     trainer.model.save_pretrained(str(C.VARIANTS_DIR / name))
+    tokenizer.save_pretrained(str(C.VARIANTS_DIR / name))
+    from lab22 import data as D
+    D.save_split_fingerprint(C.PREF_DIR, C.VARIANTS_DIR / name)
+    (C.VARIANTS_DIR / "variants_summary.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(results[name])
     del trainer, model
     MD.cleanup()
@@ -132,9 +139,11 @@ if "orpo" in SELECTED:
         "start": str(start),
         "eval_reward_accuracy": ev.get("eval_rewards/accuracies"),
         "eval_log_odds_ratio": ev.get("eval_log_odds_ratio"),
+        "eval_reward_gap": ev.get("eval_rewards/margins"),
         "mean_output_chars": sum(map(len, outputs)) / len(outputs),
     }
     trainer.model.save_pretrained(str(C.VARIANTS_DIR / "orpo"))
+    tokenizer.save_pretrained(str(C.VARIANTS_DIR / "orpo"))
     print(results["orpo"])
     del trainer, model
     MD.cleanup()

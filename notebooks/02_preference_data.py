@@ -53,8 +53,15 @@ train_ds, eval_ds = D.load_preference_pairs(
     template_kwargs=C.CHAT_TEMPLATE_KWARGS,
 )
 D.assert_disjoint(list(train_ds), list(eval_ds))
+assert len(train_ds) == C.PREF_TRAIN and len(eval_ds) == C.PREF_EVAL, (
+    "Không đủ số cặp sau lọc. Kiểm tra dataset/MAX_LEN trước khi huấn luyện; không dùng dữ liệu thiếu để nhận đủ điểm."
+)
+assert len({D.normalize_prompt(r['prompt'][0]['content']) for r in eval_ds}) >= C.JUDGE_PROMPTS, (
+    "Held-out chưa đủ prompt khác nhau để chấm NB4; tăng PREF_EVAL rồi chạy lại NB2–NB4."
+)
 print(f"train={len(train_ds)}  eval={len(eval_ds)}  (no prompt overlap)")
-print(train_ds[0])
+for i in range(min(3, len(train_ds))):
+    print(f"\nCặp mẫu {i + 1}: {train_ds[i]}")
 
 # %% [markdown]
 # ## 2. Thiên vị độ dài
@@ -96,7 +103,8 @@ import json
 train_ds.to_parquet(str(C.PREF_DIR / "train.parquet"))
 eval_ds.to_parquet(str(C.PREF_DIR / "eval.parquet"))
 (C.PREF_DIR / "stats.json").write_text(
-    json.dumps({"dataset": C.PREF_DATASET, "language": C.PREF_LANGUAGE, **stats}, ensure_ascii=False, indent=2)
+    json.dumps({"dataset": C.PREF_DATASET, "language": C.PREF_LANGUAGE,
+                "n_train": len(train_ds), "n_eval": len(eval_ds), **stats}, ensure_ascii=False, indent=2), encoding="utf-8"
 )
 print(f"Saved {len(train_ds)} train / {len(eval_ds)} eval pairs → {C.PREF_DIR}")
 

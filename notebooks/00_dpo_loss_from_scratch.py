@@ -59,8 +59,8 @@ print(f"sum log p = {total.item():.3f}   mean log p = {mean.item():.3f}")
 # %%
 def my_dpo_loss(pc, pr, rc, rr, beta=0.1):
     """pc/pr: policy log-prob chosen/rejected; rc/rr: reference. Trả về loss trung bình."""
-    # TODO: viết bằng torch.nn.functional.logsigmoid
-    return None
+    margin = beta * ((pc - rc) - (pr - rr))
+    return -torch.nn.functional.logsigmoid(margin).mean()
 
 
 # %%
@@ -85,6 +85,7 @@ else:
 same = torch.tensor([-20.0, -35.0])
 loss0, cr0, rr0 = M.dpo_loss(same, same - 3, same, same - 3)
 print(f"loss at init = {loss0.item():.4f}   log 2 = {math.log(2):.4f}   rewards = {cr0.tolist()}, {rr0.tolist()}")
+assert torch.allclose(my_dpo_loss(same, same - 3, same, same - 3), torch.tensor(math.log(2)), atol=1e-6)
 
 # %% [markdown]
 # ## 4. Trọng số gradient = sigmoid(−margin)
@@ -148,3 +149,12 @@ print(f"ORPO  {M.orpo_loss(avg_c, avg_r, -avg_c).item():.4f}")
 # **Câu hỏi cho REFLECTION §3:** tổng log-prob của câu dài luôn âm hơn câu ngắn.
 # Vì sao điều đó khiến DPO gốc dễ thiên vị độ dài, và SimPO/ORPO xử lý bằng cách nào?
 # Gợi ý: NB2 in ra tỉ lệ cặp có chosen dài hơn rejected trong dữ liệu tiếng Việt.
+
+# %% [markdown]
+# **Trả lời NB0:** DPO tối ưu chênh lệch log-ratio của chosen và rejected so với
+# reference, không tối ưu riêng xác suất chosen. Ví dụ chosen giảm 3 nat nhưng
+# rejected giảm 5 nat thì margin vẫn tăng 2β và loss giảm. Vì vậy phải xem riêng
+# cả hai reward và kiểm tra held-out. Tổng log-prob cộng trên token nên phụ thuộc
+# độ dài; tương quan nhãn với độ dài có thể tạo thiên vị. SimPO dùng log-prob
+# trung bình theo token; ORPO dùng xác suất chuẩn hoá độ dài cùng NLL chosen,
+# nhưng chuẩn hoá không bảo đảm loại hết thiên vị dữ liệu.

@@ -11,6 +11,8 @@ The Colab bundles used to be hand-edited copies that drifted from
 from __future__ import annotations
 
 import argparse
+import base64
+import gzip
 import json
 import re
 import sys
@@ -23,8 +25,8 @@ STAGES = [
     ("01_sft_mini", "core"),
     ("02_preference_data", "core"),
     ("03_dpo_train", "core"),
-    ("03b_dpo_variants", "bonus"),
     ("04_compare_and_eval", "core"),
+    ("03b_dpo_variants", "bonus"),
     ("05_merge_deploy_gguf", "bonus"),
     ("06_benchmark", "bonus"),
     ("07_grpo_bonus", "bonus"),
@@ -93,7 +95,7 @@ RELEASE_GPU = (
 )
 
 
-def render(tier: str) -> dict:
+def render_expanded(tier: str) -> dict:
     big = tier == "BIGGPU"
     pins = " ".join(f'"{s}"' for s in requirements())
     cells = [
@@ -148,6 +150,122 @@ def render(tier: str) -> dict:
     }
 
 
+def ready_payload() -> str:
+    files = {}
+    for folder in ('lab22', 'scripts', 'notebooks', 'submission', 'docs'):
+        for path in sorted((REPO / folder).rglob('*')):
+            if path.suffix in ('.py', '.md') and '__pycache__' not in path.parts:
+                # Bundle the original reflection template, never a student's generated report.
+                if folder == 'submission' and path.name not in ('REFLECTION.md', 'README.md'):
+                    continue
+                if path.name == 'REFLECTION.md' and '<Họ Tên>' not in path.read_text(encoding='utf-8'):
+                    continue
+                files[path.relative_to(REPO).as_posix()] = path.read_text(encoding='utf-8')
+    for name in ('requirements.txt', 'requirements-biggpu.txt', 'README.md', 'rubric.md', 'Makefile', '.gitignore', 'LICENSE', 'HARDWARE-GUIDE.md', 'BONUS-CHALLENGE.md', 'COLAB-RUN.md'):
+        if (REPO / name).exists():
+            files[name] = (REPO / name).read_text(encoding='utf-8')
+    return base64.b64encode(gzip.compress(json.dumps(files, ensure_ascii=False, sort_keys=True).encode(), mtime=0)).decode()
+
+
+def render_ready() -> dict:
+    pins = [s for s in requirements() if not s.startswith(('llama-cpp-python', 'lm-eval'))]
+    cells = [
+        md('# Lab 22 — Phạm Hoàng Trọng · bản chạy và đóng gói tự động\n\n'
+           'Chọn **Runtime → Change runtime type → T4 GPU**, rồi **Run all**. '
+           'NB0–NB4 chạy trước; sau đó thử bonus miễn phí. Mỗi phần có notebook riêng giữ output. '
+           'Chưa chạy GPU thì chưa có số liệu hay điểm bonus.\n\n'
+           'Mặc định lưu vào Google Drive để giữ mô hình khi Colab mất phiên. Cho phép kết nối Drive khi được hỏi. '
+           'Toàn bộ bonus mất nhiều giờ và có thể vượt hạn mức T4 miễn phí. '
+           'Nếu bị ngắt, mở phiên GPU mới và Run all; các phần đã thành công được bỏ qua khi cấu hình không đổi. '
+           'Không bảo đảm tiếp tục giữa một lượt huấn luyện chưa hoàn thành.\n\n'
+           'Cuối mỗi phần, `Lab22_submission.zip` được cập nhật. Đọc lại phản tư tự sinh trước khi nộp; '
+           'ảnh GGUF vẫn cần chụp màn hình cell theo yêu cầu rubric.'),
+        code('STUDENT_NAME = "Phạm Hoàng Trọng"\n'
+             'STUDENT_COHORT = "A20-K4 · 2A202602765"\n'
+             'USE_DRIVE = True\n'
+             'DRIVE_FOLDER = "Lab22_PhamHoangTrong_2A202602765"\n'
+             'COMPUTE_TIER = "T4"\n'
+             '# Giữ đủ dữ liệu bắt buộc; không giảm xuống cấu hình chạy thử.\n'
+             'BONUSES = "variants,gguf,benchmark,grpo,beta"\n'
+             '# Chạy riêng phần lỗi: ONLY="gguf", "variants", "benchmark", "grpo", "beta".\n'
+             '# ONLY="core" chỉ chạy bắt buộc; ONLY="finish" chỉ tạo báo cáo + zip.\n'
+             'ONLY = ""\n'
+             'RESUME = True\n'
+             '# Tuỳ chọn cần tài khoản/key: để trống thì không gọi dịch vụ.\n'
+             'CROSS_JUDGE_PROVIDER = ""  # gemini / openai / anthropic\n'
+             'CROSS_JUDGE_MODEL = ""     # model ID do bạn chọn\n'
+             'HF_REPO_ID = ""           # tài-khoản/lab22-dpo-experimental\n'),
+        code('import os, sys, json, gzip, base64, subprocess\n'
+             'from pathlib import Path\n'
+             'if USE_DRIVE:\n'
+             '    from google.colab import drive\n'
+             '    drive.mount("/content/drive")\n'
+             '    WORK = Path("/content/drive/MyDrive") / DRIVE_FOLDER\n'
+             'else:\n'
+             '    WORK = Path("/content/lab22")\n'
+             'WORK.mkdir(parents=True, exist_ok=True)\n'
+             f'payload = json.loads(gzip.decompress(base64.b64decode("{ready_payload()}")))\n'
+             'for relative, contents in payload.items():\n'
+             '    path = WORK / relative\n'
+             '    if relative == "submission/REFLECTION.md" and path.exists():\n'
+             '        continue\n'
+             '    path.parent.mkdir(parents=True, exist_ok=True)\n'
+             '    path.write_text(contents, encoding="utf-8")\n'
+             'os.chdir(WORK)\n'
+             'os.environ.update(COMPUTE_TIER=COMPUTE_TIER, STUDENT_NAME=STUDENT_NAME, STUDENT_COHORT=STUDENT_COHORT, GEN_BATCH_SIZE="2", JUDGE_PROVIDER="rm")\n'
+             '# OOM: thêm os.environ["MAX_LEN"]="512" rồi chạy lại core; cấu hình đổi sẽ huấn luyện lại.\n'
+             'print("Thư mục làm việc:", WORK)\n'),
+        code(f'subprocess.run([sys.executable, "-m", "pip", "install", "-q", *{pins!r}, "nbclient>=0.10,<1", "nbformat>=5.10,<6", "ipykernel>=6,<8"], check=True)\n'
+             'subprocess.run([sys.executable, "scripts/build_colab.py"], check=True)\n'
+             '# Kiểm tra GPU trong tiến trình riêng để không nạp transformers trước Unsloth.\n'
+             'subprocess.run([sys.executable, "-c", "import torch; assert torch.cuda.is_available(), \'Hãy chọn T4 GPU\'; print(torch.cuda.get_device_name(0))"], check=True)'),
+        code('from google.colab import userdata\n'
+             'if CROSS_JUDGE_PROVIDER and CROSS_JUDGE_MODEL:\n'
+             '    key_name = {"gemini":"GEMINI_API_KEY", "openai":"OPENAI_API_KEY", "anthropic":"ANTHROPIC_API_KEY"}[CROSS_JUDGE_PROVIDER]\n'
+             '    os.environ[key_name] = userdata.get(key_name)\n'
+             '    os.environ.update(CROSS_JUDGE_PROVIDER=CROSS_JUDGE_PROVIDER, CROSS_JUDGE_MODEL=CROSS_JUDGE_MODEL)\n'
+             '    BONUSES += ",cross"\n'
+             'if HF_REPO_ID:\n'
+             '    os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")\n'
+             '    os.environ["HF_REPO_ID"] = HF_REPO_ID\n'
+             '    BONUSES += ",hub"\n'
+             'command = [sys.executable, "-u", "scripts/run_colab.py", "--bonuses", BONUSES]\n'
+             'if RESUME: command.append("--resume")\n'
+             'if ONLY: command += ["--only", ONLY]\n'
+             'result = subprocess.run(command)\n'
+             'print("Pipeline exit code:", result.returncode)\n'
+             'print("Đọc data/eval/run_status.json để biết phần nào đã thành công hoặc còn lỗi.")'),
+        md('## Kết quả và tải bài nộp\n\n'
+           'Zip chứa các notebook đã chạy với output, ảnh, JSON, dữ liệu preference, mã nguồn và phản tư. '
+           'Không chứa trọng số hay khóa API. Giữ mô hình trong Drive nếu muốn chạy tiếp bonus. '
+           'Nếu runtime bị ngắt, lấy zip trong thư mục Drive ngay cả khi chưa tới cell này. '
+           'Giải nén zip vào repo, đọc/điều chỉnh phản tư theo quan sát thật, commit rồi nộp link GitHub public trên LMS. '
+           'Không gọi là hoàn thành bonus nếu `run_status.json` báo lỗi.'),
+        code('from IPython.display import display, Markdown, Image\n'
+             'report = WORK / "submission/REFLECTION.md"\n'
+             'if report.exists(): display(Markdown(report.read_text(encoding="utf-8")))\n'
+             'for filename in ("03b-variants.png", "07-benchmark-comparison.png", "08-grpo-reward.png", "bonus-beta-sweep.png"):\n'
+             '    image_path = WORK / "submission/screenshots" / filename\n'
+             '    if image_path.exists(): display(Image(filename=str(image_path)))\n'
+             'meta = WORK / "data/eval/deploy_meta.json"\n'
+             'if meta.exists():\n'
+             '    info = json.loads(meta.read_text(encoding="utf-8"))\n'
+             '    print("GGUF Q4_K_M:", info["gguf_path"])\n'
+             '    print(info["smoke_prompt"], "\\nHF:\\n", info["hf_answer"], "\\nGGUF:\\n", info["gguf_answer"])\n'
+             '    print("Chụp màn hình phần này và lưu submission/screenshots/06-gguf-smoke.png vào repo.")\n'
+             'from google.colab import files\n'
+             'archive = WORK / "Lab22_submission.zip"\n'
+             'if archive.exists(): files.download(str(archive))\n'
+             'else: print("Chưa có zip: kiểm tra lỗi cài đặt hoặc GPU ở các cell trước.")'),
+    ]
+    return {'cells': cells, 'metadata': {'accelerator': 'GPU', 'colab': {'gpuType': 'T4', 'provenance': []}, 'kernelspec': {'name': 'python3', 'display_name': 'Python 3'}, 'language_info': {'name': 'python'}}, 'nbformat': 4, 'nbformat_minor': 5}
+
+
+def render(tier: str) -> dict:
+    """The standard T4 filename is the complete automatic submission workflow."""
+    return render_ready() if tier == 'T4' else render_expanded(tier)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="fail if colab/*.ipynb differ from the sources")
@@ -162,6 +280,14 @@ def main() -> int:
             continue
         path.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print(f"wrote colab/{name} ({len(nb['cells'])} cells)")
+    ready_path = REPO / 'colab/Lab22_READY_ALL.ipynb'
+    ready = render_ready()
+    if args.check:
+        if not ready_path.exists() or json.loads(ready_path.read_text(encoding='utf-8')) != ready:
+            stale.append(ready_path.name)
+    else:
+        ready_path.write_text(json.dumps(ready, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        print(f'wrote colab/{ready_path.name} ({len(ready["cells"])} cells)')
     if stale:
         print(f"stale: {stale}; run `python scripts/build_colab.py`")
         return 1

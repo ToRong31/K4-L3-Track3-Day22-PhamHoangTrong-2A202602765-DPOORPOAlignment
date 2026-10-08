@@ -7,6 +7,7 @@ patch them; these helpers import lazily for the same reason.
 from __future__ import annotations
 
 import gc
+import os
 from pathlib import Path
 
 from . import config as C
@@ -66,6 +67,9 @@ def generate(
     from unsloth import FastLanguageModel
 
     FastLanguageModel.for_inference(model)
+    batch_size = int(os.environ.get("GEN_BATCH_SIZE", str(batch_size)))
+    if batch_size < 1:
+        raise ValueError("GEN_BATCH_SIZE must be positive")
     old_side = tokenizer.padding_side
     tokenizer.padding_side = "left"
     outputs: list[str] = []
@@ -160,7 +164,7 @@ def diagnose(df, window: int = 3) -> tuple[str, str]:
     reference, so the sign of the final chosen reward is the direction it moved.
     """
     if df.empty or len(df) < 2:
-        return "UNKNOWN", "Not enough logged steps to diagnose."
+        return "AMBIGUOUS", "Not enough logged steps to diagnose."
     end = df.tail(window)
     chosen = float(end["rewards/chosen"].mean())
     rejected = float(end["rewards/rejected"].mean())
@@ -175,9 +179,9 @@ def diagnose(df, window: int = 3) -> tuple[str, str]:
             f"Margin {margin:+.3f} > 0 but chosen reward {chosen:+.3f} < 0: the gap grew "
             "because rejected fell faster. Compare with RPO in NB3b."
         )
-    if chosen > 0:
+    if chosen > 0 and rejected < 0:
         return "INTENDED", f"Chosen {chosen:+.3f} up, rejected {rejected:+.3f}, margin {margin:+.3f}."
-    return "AMBIGUOUS", f"Margin {margin:+.3f} with flat chosen reward; train longer or raise lr."
+    return "AMBIGUOUS", f"Margin {margin:+.3f}, chosen {chosen:+.3f}, rejected {rejected:+.3f}: not the intended opposite directions."
 
 
 def plot_rewards(train_df, eval_df, title: str, path: Path | None = None):

@@ -105,6 +105,8 @@ model, tokenizer = MD.load_model(C.SFT_MERGED)
 acc_before = accuracy(model, tokenizer)
 print(f"test[{len(test_ds)}] accuracy before GRPO: {acc_before:.3f}")
 model = MD.add_lora(model)
+from unsloth import FastLanguageModel
+FastLanguageModel.for_training(model)
 
 # %% [markdown]
 # ## 3. GRPO
@@ -171,6 +173,7 @@ result = {
     "num_generations": G, "acc_before": acc_before, "acc_after": acc_after,
 }
 (C.GRPO_ADAPTER / "grpo_metrics.json").write_text(json.dumps(result, indent=2))
+(C.GRPO_ADAPTER / "grpo_history.json").write_text(json.dumps(trainer.state.log_history, indent=2), encoding="utf-8")
 print(result)
 
 # %% [markdown]

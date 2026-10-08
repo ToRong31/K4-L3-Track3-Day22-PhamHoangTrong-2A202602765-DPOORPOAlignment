@@ -26,6 +26,7 @@
 
 # %%
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -49,7 +50,7 @@ BENCHMARKS = {
     "Global-MMLU-vi": ("global_mmlu_full_vi", 0, 40 if BIG else 10, "acc,none"),
 }
 DTYPE = "bfloat16" if torch.cuda.is_bf16_supported() else "float16"
-BATCH = "auto" if BIG else "4"
+BATCH = os.environ.get("BENCH_BATCH_SIZE", "auto" if BIG else "1")
 for name, (task, shots, limit, _metric) in BENCHMARKS.items():
     print(f"{name:15s} task={task} fewshot={shots} limit/subtask={limit or 'all'}")
 

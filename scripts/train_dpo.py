@@ -78,7 +78,7 @@ def main() -> int:
         "eval_rejected_reward": ev.get("eval_rewards/rejected"),
         "eval_reward_gap": ev.get("eval_rewards/margins"),
         "eval_reward_accuracy": ev.get("eval_rewards/accuracies"),
-        "diagnosis": MD.diagnose(train_hist)[0],
+        "diagnosis": MD.diagnose(MD.reward_history(trainer.state.log_history, prefix="eval_"))[0],
     }
     (output / "dpo_metrics.json").write_text(json.dumps(metrics, indent=2))
     print(json.dumps(metrics, indent=2))

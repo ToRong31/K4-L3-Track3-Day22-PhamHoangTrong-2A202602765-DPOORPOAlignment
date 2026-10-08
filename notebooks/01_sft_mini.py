@@ -106,6 +106,20 @@ trainer = train_on_responses_only(
 result = trainer.train()
 print(f"Final SFT loss: {result.training_loss:.4f}")
 
+import json
+from datetime import datetime, timezone
+
+(C.EVAL_DIR / "sft_metrics.json").write_text(json.dumps({
+    "gpu": torch.cuda.get_device_name(0),
+    "vram_gb": torch.cuda.get_device_properties(0).total_memory / 1e9,
+    "base_model": C.BASE_MODEL, "dataset": C.SFT_DATASET,
+    "n_train": len(ds), "epochs": 1, "max_len": C.MAX_LEN,
+    "seed": C.SEED, "train_runtime": result.metrics.get("train_runtime"),
+    "final_loss": float(result.training_loss),
+    "logs": trainer.state.log_history,
+    "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+}, ensure_ascii=False, indent=2), encoding="utf-8")
+
 # %%
 import matplotlib.pyplot as plt
 import pandas as pd

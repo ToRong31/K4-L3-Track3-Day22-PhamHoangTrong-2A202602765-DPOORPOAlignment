@@ -24,8 +24,10 @@ adapters/*/*
 !adapters/*/split.json
 !adapters/*/variants_summary.json
 !adapters/*/grpo_metrics.json
+!adapters/*/grpo_history.json
 data/pref/*
 !data/pref/*.parquet
+!data/pref/stats.json
 data/eval/*
 !data/eval/*.json
 !data/eval/*.jsonl
@@ -34,6 +36,8 @@ gguf*/
 *.gguf
 runs/
 wandb/
+hub-export/
+Lab22_submission.zip
 
 # HuggingFace cache
 .cache/
