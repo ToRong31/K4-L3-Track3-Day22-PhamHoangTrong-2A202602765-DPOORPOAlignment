@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -57,10 +58,10 @@ def check_dpo(problems: list[str], warnings: list[str]) -> None:
     if not need(adapter / "adapter_config.json", "DPO adapter (NB3)", problems):
         return
     base = str((read_json(adapter / "adapter_config.json", problems) or {}).get("base_model_name_or_path", ""))
-    expected = (REPO / "models" / "sft-merged").resolve()
+    expected = (Path(os.environ.get("LAB22_MODELS_DIR", str(REPO / "models"))) / "sft-merged").resolve()
     if not base or Path(base).resolve() != expected:
         problems.append(
-            f"WRONG REF  adapters/dpo was trained on {base!r}, not {rel(expected)}: the DPO reference "
+            f"WRONG REF  adapters/dpo was trained on {base!r}, not {expected}: the DPO reference "
             "must be this repo's SFT model (if the repo moved, rerun NB3 here)."
         )
     sys.path.insert(0, str(REPO))
@@ -140,8 +141,8 @@ def optional_status() -> list[str]:
     for label, path in checks.items():
         done.append(f"{'✓' if path.exists() else '·'} {label}")
     if (REPO / "data" / "eval" / "deploy_meta.json").exists():
-        ggufs = list(REPO.glob("gguf*/**/*.gguf"))
-        done.append(f"  GGUF files: {[rel(p) for p in ggufs] or 'none found'}")
+        ggufs = list(Path(os.environ.get("LAB22_GGUF_DIR", str(REPO / "gguf"))).rglob("*.gguf"))
+        done.append(f"  GGUF files: {[str(p) for p in ggufs] or 'none found'}")
     return done
 
 
@@ -196,7 +197,9 @@ def main() -> int:
     for nb in NOTEBOOKS:
         need(REPO / "notebooks" / f"{nb}.py", f"notebook {nb}", problems)
     need(REPO / "adapters" / "sft-mini" / "adapter_config.json", "SFT adapter (NB1)", problems)
-    need(REPO / "models" / "sft-merged" / "config.json", "merged SFT model = DPO reference (NB1)", problems)
+    merged = Path(os.environ.get("LAB22_MODELS_DIR", str(REPO / "models"))) / "sft-merged" / "config.json"
+    if not merged.exists():
+        problems.append(f"MISSING merged SFT model = DPO reference (NB1): {merged}")
     need(REPO / "data" / "pref" / "train.parquet", "preference train split (NB2)", problems)
     need(REPO / "data" / "pref" / "eval.parquet", "held-out preference split (NB2)", problems)
     check_dpo(problems, warnings)

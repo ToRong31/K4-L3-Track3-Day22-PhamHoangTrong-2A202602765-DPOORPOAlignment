@@ -121,7 +121,7 @@ def upload_hub():
     api = HfApi()
     reference_id = repo_id + '-sft-reference'
     api.create_repo(repo_id=reference_id, exist_ok=True)
-    api.upload_folder(repo_id=reference_id, folder_path=REPO / 'models/sft-merged')
+    api.upload_folder(repo_id=reference_id, folder_path=Path(os.environ.get('LAB22_MODELS_DIR', str(REPO / 'models'))) / 'sft-merged')
     # Publish a copy of the config; the local config must continue pointing to the local SFT.
     staging = REPO / 'hub-export'
     staging.mkdir(exist_ok=True)
@@ -156,6 +156,12 @@ def main():
     parser.add_argument('--resume', action='store_true')
     parser.add_argument('--only', choices=['core', *BONUS, 'beta', 'cross', 'hub', 'finish'])
     args = parser.parse_args()
+    storage_file = REPO / 'data/eval/storage_paths.json'
+    if storage_file.exists():
+        for key, value in json.loads(storage_file.read_text(encoding='utf-8')).items():
+            if key in ('LAB22_MODELS_DIR', 'LAB22_GGUF_DIR'):
+                os.environ[key] = value
+    ARTIFACTS[CORE[1]] = str(Path(os.environ.get('LAB22_MODELS_DIR', str(REPO / 'models'))) / 'sft-merged/config.json')
     selected = [s.strip() for s in args.bonuses.split(',') if s.strip()]
     unknown = set(selected) - set(BONUS) - {'beta', 'cross', 'hub'}
     if unknown:

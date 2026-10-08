@@ -17,6 +17,11 @@ Tên/mã học viên đặt theo tên repo; kiểm tra cell cấu hình đầu n
 
 ## Điểm cần chú ý khi chạy
 
+`LOCAL_MODELS=True` (mặc định): mô hình SFT đã gộp và GGUF ở `/content/lab22-runtime`, adapter và kết quả vẫn trên Drive.
+Phiên mới gộp lại SFT từ adapter, không cần huấn luyện lại SFT chỉ để khôi phục trọng số. Muốn tải GGUF hoặc mô hình,
+tải từ đường dẫn tạm trước khi mất phiên. Bản Drive cũ có thể chuyển bằng `scripts/local_model_storage.py`;
+chỉ thêm `--remove-drive-copy` khi muốn xóa riêng `models/sft-merged` sau khi kiểm tra bản sao.
+
 Toàn bộ bonus có thể mất nhiều giờ và vượt hạn mức T4 miễn phí. Lượt huấn luyện bị ngắt phải chạy lại lượt đó;
 Drive giữ các mô hình và notebook của phần đã hoàn thành. Cấu hình đổi sẽ làm lại core để tránh dùng kết quả cũ.
 `ONLY="core"` chạy phần bắt buộc. `ONLY="variants"`, `"gguf"`, `"benchmark"`, `"grpo"`, `"beta"` chạy riêng bonus.

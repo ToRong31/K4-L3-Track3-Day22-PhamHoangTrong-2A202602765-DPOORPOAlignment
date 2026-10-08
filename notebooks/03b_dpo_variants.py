@@ -67,7 +67,10 @@ import json
 
 from trl import DPOTrainer
 
-results = {}
+summary_path = C.VARIANTS_DIR / "variants_summary.json"
+# Explicitly enable only when continuing the same experiment/settings.
+results = (json.loads(summary_path.read_text(encoding="utf-8"))
+           if os.environ.get("VARIANT_REUSE_EXISTING") == "1" and summary_path.exists() else {})
 for name in [r for r in SELECTED if r in RUNS]:
     print(f"\n=== {name} ===")
     model, tokenizer = MD.load_model(C.SFT_MERGED)

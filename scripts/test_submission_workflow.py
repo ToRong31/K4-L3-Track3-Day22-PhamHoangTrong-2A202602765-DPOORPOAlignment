@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_colab as B
 import run_colab as R
 import finish_submission as F
+import local_model_storage as L
 
 
 def test_ready_bundle_is_self_contained_and_core_first():
@@ -112,3 +113,47 @@ def test_failed_notebook_keeps_actual_output(tmp_path, monkeypatch):
     nb = nbformat.read(folder / 'failure.ipynb', as_version=4)
     assert nb.cells[0].outputs[0].text.strip() == 'actual output before error'
     assert nb.cells[1].outputs[0].output_type == 'error'
+
+
+def test_migration_preserves_evidence_and_only_removes_verified_model(tmp_path, monkeypatch):
+    root, local = tmp_path / 'drive', tmp_path / 'runtime'
+    for folder in ('lab22', 'notebooks', 'scripts', 'adapters/dpo', 'data/eval', 'models/sft-merged'):
+        (root / folder).mkdir(parents=True, exist_ok=True)
+    for relative in ('lab22/config.py', 'notebooks/05_merge_deploy_gguf.py', 'scripts/verify.py', 'scripts/run_colab.py'):
+        (root / relative).write_text((B.REPO / relative).read_text(encoding='utf-8'), encoding='utf-8')
+    original = root / 'models/sft-merged'
+    (original / 'model.safetensors').write_bytes(b'test-weight-copy')
+    (original / 'config.json').write_text('{}')
+    (root / 'adapters/dpo/adapter_config.json').write_text(json.dumps({'base_model_name_or_path': str(original)}))
+    evidence = root / 'data/eval/judge_summary.json'
+    evidence.write_text('{"original": true}')
+    def fixture_validator(path):
+        if not (path / 'config.json').exists() or not (path / 'model.safetensors').exists():
+            raise RuntimeError('missing fixture')
+        return [path / 'model.safetensors']
+    monkeypatch.setattr(L, 'validate_model', fixture_validator)
+    monkeypatch.setattr(sys, 'argv', ['local_model_storage.py', '--root', str(root), '--local', str(local), '--remove-drive-copy'])
+    assert L.main() == 0
+    assert not original.exists()
+    merged = local / 'models/sft-merged'
+    assert (merged / 'model.safetensors').read_bytes() == b'test-weight-copy'
+    assert json.loads((root / 'adapters/dpo/adapter_config.json').read_text())['base_model_name_or_path'] == str(merged)
+    assert evidence.read_text() == '{"original": true}'
+    for relative in ('lab22/config.py', 'notebooks/05_merge_deploy_gguf.py', 'scripts/verify.py', 'scripts/run_colab.py'):
+        ast.parse((root / relative).read_text(encoding='utf-8'))
+
+
+def test_migration_refuses_to_delete_a_different_original(tmp_path, monkeypatch):
+    root, local = tmp_path / 'drive', tmp_path / 'runtime'
+    original, merged = root / 'models/sft-merged', local / 'models/sft-merged'
+    for folder in (original, merged):
+        folder.mkdir(parents=True)
+    (original / 'model.safetensors').write_bytes(b'original')
+    (merged / 'model.safetensors').write_bytes(b'different')
+    monkeypatch.setattr(L, 'valid', lambda p: p == merged)
+    monkeypatch.setattr(L, 'validate_model', lambda p: [])
+    monkeypatch.setattr(L, 'patch_workspace', lambda *args: None)
+    monkeypatch.setattr(sys, 'argv', ['local_model_storage.py', '--root', str(root), '--local', str(local), '--remove-drive-copy'])
+    with pytest.raises(RuntimeError, match='refusing deletion'):
+        L.main()
+    assert (original / 'model.safetensors').read_bytes() == b'original'

@@ -163,7 +163,7 @@ GEN_MAX_NEW_TOKENS = int(_env("GEN_MAX_NEW_TOKENS", "384"))
 
 
 ADAPTERS = REPO_ROOT / "adapters"
-MODELS = REPO_ROOT / "models"
+MODELS = Path(_env("LAB22_MODELS_DIR", str(REPO_ROOT / "models")))
 DATA = REPO_ROOT / "data"
 SCREENSHOTS = REPO_ROOT / "submission" / "screenshots"
 
@@ -176,7 +176,7 @@ VARIANTS_DIR = ADAPTERS / "variants"
 GRPO_ADAPTER = ADAPTERS / "grpo"
 PREF_DIR = DATA / "pref"
 EVAL_DIR = DATA / "eval"
-GGUF_DIR = REPO_ROOT / "gguf"
+GGUF_DIR = Path(_env("LAB22_GGUF_DIR", str(REPO_ROOT / "gguf")))
 
 
 def ensure_dirs() -> None:

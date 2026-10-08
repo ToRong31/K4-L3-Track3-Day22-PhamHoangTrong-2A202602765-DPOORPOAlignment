@@ -174,7 +174,8 @@ def render_ready() -> dict:
            'Chọn **Runtime → Change runtime type → T4 GPU**, rồi **Run all**. '
            'NB0–NB4 chạy trước; sau đó thử bonus miễn phí. Mỗi phần có notebook riêng giữ output. '
            'Chưa chạy GPU thì chưa có số liệu hay điểm bonus.\n\n'
-           'Mặc định lưu vào Google Drive để giữ mô hình khi Colab mất phiên. Cho phép kết nối Drive khi được hỏi. '
+           'Mặc định chỉ lưu adapter và kết quả lên Drive; mô hình lớn và GGUF nằm tạm ở Colab. Cho phép kết nối Drive khi được hỏi. '
+           'Khi mất phiên, mô hình SFT được gộp lại từ adapter đã lưu trước khi chạy tiếp. '
            'Toàn bộ bonus mất nhiều giờ và có thể vượt hạn mức T4 miễn phí. '
            'Nếu bị ngắt, mở phiên GPU mới và Run all; các phần đã thành công được bỏ qua khi cấu hình không đổi. '
            'Không bảo đảm tiếp tục giữa một lượt huấn luyện chưa hoàn thành.\n\n'
@@ -183,6 +184,7 @@ def render_ready() -> dict:
         code('STUDENT_NAME = "Phạm Hoàng Trọng"\n'
              'STUDENT_COHORT = "A20-K4 · 2A202602765"\n'
              'USE_DRIVE = True\n'
+             'LOCAL_MODELS = True  # Giữ mô hình lớn/GGUF ở /content, không chiếm Drive.\n'
              'DRIVE_FOLDER = "Lab22_PhamHoangTrong_2A202602765"\n'
              'COMPUTE_TIER = "T4"\n'
              '# Giữ đủ dữ liệu bắt buộc; không giảm xuống cấu hình chạy thử.\n'
@@ -213,12 +215,18 @@ def render_ready() -> dict:
              '    path.write_text(contents, encoding="utf-8")\n'
              'os.chdir(WORK)\n'
              'os.environ.update(COMPUTE_TIER=COMPUTE_TIER, STUDENT_NAME=STUDENT_NAME, STUDENT_COHORT=STUDENT_COHORT, GEN_BATCH_SIZE="2", JUDGE_PROVIDER="rm")\n'
+             'if LOCAL_MODELS:\n'
+             '    os.environ.update(LAB22_MODELS_DIR="/content/lab22-runtime/models", LAB22_GGUF_DIR="/content/lab22-runtime/gguf")\n'
+             '    (WORK / "data/eval").mkdir(parents=True, exist_ok=True)\n'
+             '    (WORK / "data/eval/storage_paths.json").write_text(json.dumps({k:os.environ[k] for k in ("LAB22_MODELS_DIR", "LAB22_GGUF_DIR")}), encoding="utf-8")\n'
              '# OOM: thêm os.environ["MAX_LEN"]="512" rồi chạy lại core; cấu hình đổi sẽ huấn luyện lại.\n'
              'print("Thư mục làm việc:", WORK)\n'),
         code(f'subprocess.run([sys.executable, "-m", "pip", "install", "-q", *{pins!r}, "nbclient>=0.10,<1", "nbformat>=5.10,<6", "ipykernel>=6,<8"], check=True)\n'
              'subprocess.run([sys.executable, "scripts/build_colab.py"], check=True)\n'
              '# Kiểm tra GPU trong tiến trình riêng để không nạp transformers trước Unsloth.\n'
-             'subprocess.run([sys.executable, "-c", "import torch; assert torch.cuda.is_available(), \'Hãy chọn T4 GPU\'; print(torch.cuda.get_device_name(0))"], check=True)'),
+             'subprocess.run([sys.executable, "-c", "import torch; assert torch.cuda.is_available(), \'Hãy chọn T4 GPU\'; print(torch.cuda.get_device_name(0))"], check=True)\n'
+             'if LOCAL_MODELS and (WORK / "adapters/sft-mini/adapter_model.safetensors").exists():\n'
+             '    subprocess.run([sys.executable, "-u", "scripts/local_model_storage.py", "--root", str(WORK)], check=True)'),
         code('from google.colab import userdata\n'
              'if CROSS_JUDGE_PROVIDER and CROSS_JUDGE_MODEL:\n'
              '    key_name = {"gemini":"GEMINI_API_KEY", "openai":"OPENAI_API_KEY", "anthropic":"ANTHROPIC_API_KEY"}[CROSS_JUDGE_PROVIDER]\n'
@@ -237,7 +245,8 @@ def render_ready() -> dict:
              'print("Đọc data/eval/run_status.json để biết phần nào đã thành công hoặc còn lỗi.")'),
         md('## Kết quả và tải bài nộp\n\n'
            'Zip chứa các notebook đã chạy với output, ảnh, JSON, dữ liệu preference, mã nguồn và phản tư. '
-           'Không chứa trọng số hay khóa API. Giữ mô hình trong Drive nếu muốn chạy tiếp bonus. '
+           'Không chứa trọng số hay khóa API. Adapter được giữ trên Drive để gộp lại mô hình khi cần. '
+           'Muốn tải GGUF về máy, dùng files.download() với đường dẫn GGUF in dưới đây trước khi mất phiên. '
            'Nếu runtime bị ngắt, lấy zip trong thư mục Drive ngay cả khi chưa tới cell này. '
            'Giải nén zip vào repo, đọc/điều chỉnh phản tư theo quan sát thật, commit rồi nộp link GitHub public trên LMS. '
            'Không gọi là hoàn thành bonus nếu `run_status.json` báo lỗi.'),

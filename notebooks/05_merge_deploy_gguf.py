@@ -15,6 +15,7 @@
 
 # %%
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -64,18 +65,26 @@ print(f"HF (SFT+DPO) answer:\n{hf_answer}")
 # Tên file và thư mục con khác nhau giữa các bản Unsloth, nên ta tìm file bằng glob đệ quy.
 
 # %%
-model.save_pretrained_gguf(str(C.GGUF_DIR), tokenizer, quantization_method="q4_k_m")
+export_work = C.GGUF_DIR.parent / "gguf-work"
+export_work.mkdir(parents=True, exist_ok=True)
+previous_cwd = Path.cwd()
+try:
+    # Unsloth writes its f16 intermediate and builds llama.cpp in the cwd.
+    os.chdir(export_work)
+    model.save_pretrained_gguf(str(C.GGUF_DIR), tokenizer, quantization_method="q4_k_m")
+finally:
+    os.chdir(previous_cwd)
 # Optional for the +3 rigor add-on: quantization_method=["q4_k_m", "q5_k_m", "q8_0"]
 
 
 def find_gguf(pattern: str = "q4_k_m") -> Path:
-    hits = [p for p in C.REPO_ROOT.glob("gguf*/**/*.gguf") if pattern in p.name.lower()]
+    hits = [p for p in C.GGUF_DIR.parent.glob(C.GGUF_DIR.name + "*/**/*.gguf") if pattern in p.name.lower()]
     assert hits, f"No *{pattern}*.gguf under {C.REPO_ROOT}/gguf*"
     return max(hits, key=lambda p: p.stat().st_mtime)
 
 
 gguf_path = find_gguf()
-print(f"{gguf_path.relative_to(C.REPO_ROOT)}  {gguf_path.stat().st_size / 1e9:.2f} GB")
+print(f"{gguf_path}  {gguf_path.stat().st_size / 1e9:.2f} GB")
 del model
 MD.cleanup()
 
@@ -102,7 +111,7 @@ deploy_meta = {
     "base_model": C.BASE_MODEL,
     "adapter": str(C.DPO_ADAPTER.relative_to(C.REPO_ROOT)),
     "adapter_base": adapter_cfg.get("base_model_name_or_path"),
-    "gguf_path": str(gguf_path.relative_to(C.REPO_ROOT)),
+    "gguf_path": str(gguf_path),
     "gguf_size_mb": round(gguf_path.stat().st_size / 1e6, 1),
     "quantization": "q4_k_m",
     "smoke_prompt": SMOKE_PROMPT,
