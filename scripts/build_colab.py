@@ -270,6 +270,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="fail if colab/*.ipynb differ from the sources")
     args = parser.parse_args()
+    if not args.check:
+        (REPO / "colab").mkdir(parents=True, exist_ok=True)
     stale = []
     for tier, name in TARGETS.items():
         path = REPO / "colab" / name

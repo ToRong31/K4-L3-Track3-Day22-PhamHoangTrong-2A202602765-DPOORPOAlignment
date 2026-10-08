@@ -5,6 +5,7 @@ import gzip
 import json
 import re
 import sys
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -48,6 +49,18 @@ def test_export_includes_evidence_and_excludes_secrets_and_weights(tmp_path, mon
         assert 'data/pref/train.parquet' in names
         assert all(not n.endswith(('.token', '.safetensors')) for n in names)
         assert '.env' not in names
+
+
+def test_builder_runs_in_freshly_extracted_colab_payload(tmp_path):
+    payload = json.loads(gzip.decompress(base64.b64decode(B.ready_payload())))
+    for relative, contents in payload.items():
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(contents, encoding='utf-8')
+    assert not (tmp_path / 'colab').exists()
+    result = subprocess.run([sys.executable, 'scripts/build_colab.py'], cwd=tmp_path, capture_output=True, text=True, encoding='utf-8')
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / 'colab/Lab22_DPO_T4.ipynb').exists()
 
 
 def test_finish_does_not_create_reflection_without_real_artifacts(tmp_path, monkeypatch):
