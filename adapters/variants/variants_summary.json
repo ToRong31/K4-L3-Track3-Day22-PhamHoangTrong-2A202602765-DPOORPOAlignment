@@ -1,4 +1,20 @@
 {
+  "dpo": {
+    "eval_reward_accuracy": 0.68,
+    "eval_chosen_reward": 0.08161025777313625,
+    "eval_rejected_reward": 0.05793415897089289,
+    "eval_reward_gap": 0.023676098878495394,
+    "mean_output_chars": 460.7,
+    "evaluation_source": "saved-adapter re-evaluation; explicit SFT reference"
+  },
+  "rpo": {
+    "eval_reward_accuracy": 0.65,
+    "eval_chosen_reward": 0.5145321404933929,
+    "eval_rejected_reward": 0.47926229283213617,
+    "eval_reward_gap": 0.03526984766125679,
+    "mean_output_chars": 433.6,
+    "evaluation_source": "saved-adapter re-evaluation; explicit SFT reference"
+  },
   "dpo_norm": {
     "eval_reward_accuracy": 0.64,
     "eval_chosen_reward": -0.17711496710777283,

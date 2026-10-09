@@ -7,7 +7,7 @@
     "parent_library": "transformers.models.qwen3.modeling_qwen3",
     "unsloth_fixed": true
   },
-  "base_model_name_or_path": "/content/lab22-runtime/models/sft-merged",
+  "base_model_name_or_path": "/kaggle/temp/lab22-runtime/models/sft-merged",
   "bias": "none",
   "corda_config": null,
   "ensure_weight_tying": false,

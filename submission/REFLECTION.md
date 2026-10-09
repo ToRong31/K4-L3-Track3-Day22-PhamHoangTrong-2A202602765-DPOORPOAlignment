@@ -155,16 +155,36 @@ Chưa hoàn thành đủ ba lượt β; không yêu cầu điểm bonus này. Gi
 Quyết định được phân tích là dùng mô hình SFT đã gộp làm reference và khởi tạo LoRA DPO mới, với β=0.1 và learning rate=5e-06. Phương án thay thế là dùng mô hình gốc làm reference, hoặc chồng adapter DPO lên adapter SFT rồi tắt toàn bộ adapter khi tính log-prob tham chiếu. Phương án đó sẽ đo mức thay đổi so với mô hình gốc và làm mất ý nghĩa so sánh bước căn chỉnh sau SFT của bài lab. Cấu hình hiện tại giúp policy và reference giống nhau tại khởi tạo; log-prob reference được tính trước khi cập nhật nên không cần giữ một mô hình tham chiếu đầy đủ khác trong VRAM. Điều này phù hợp với GPU giới hạn bộ nhớ và bảo toàn mục tiêu so sánh SFT với SFT+DPO. Kết quả thực tế là margin held-out 0.0822, reward accuracy 0.6500 và chẩn đoán AMBIGUOUS. NB4 cho kết luận chưa đủ bằng chứng DPO tốt hơn SFT vì CI chứa 0,5. Những số liệu này không đủ để gán hiệu quả cho một siêu tham số riêng vì chưa có đối chứng đa seed. Nếu làm lại, nên giữ nguyên tập held-out, quét β và learning rate có kiểm soát, bổ sung giám khảo khác nhóm phát triển và kiểm tra các cặp có độ dài gần bằng nhau. Ưu tiên kết quả có thể tái lập và câu trả lời đáp ứng yêu cầu hơn là tìm một lượt chạy có win rate cao. Đây là phân tích quyết định kỹ thuật từ bằng chứng, không phải lời khẳng định về trải nghiệm cá nhân của người nộp.
 
 
+## 7. Benchmark — SFT so với SFT+DPO
+
+![Benchmark comparison](screenshots/07-benchmark-comparison.png)
+
+Nguồn: `data/eval/benchmark_results.json`, output chạy trong `notebooks/06_benchmark.ipynb`. Cả hai mô hình được đánh giá với chat template, tắt thinking, dtype float16. GSM8K dùng 5-shot dạng hội thoại; IFEval và Global-MMLU-vi dùng 0-shot.
+
+| Bộ đo | Giới hạn | SFT ± stderr | SFT+DPO ± stderr | Δ (điểm phần trăm) |
+| --- | --- | --- | --- | --- |
+| IFEval | 200 câu | 50,50% ± 3,54% | 52,50% ± 3,54% | +2,00 |
+| GSM8K | 250 câu | 82,00% ± 2,43% | 82,80% ± 2,39% | +0,80 |
+| Global-MMLU-vi | 10 câu mỗi môn | 24,39% ± 1,79% | 24,39% ± 1,79% | 0,00 |
+
+IFEval tăng 2 điểm phần trăm, nhưng chênh lệch nhỏ hơn hai lần stderr của từng mô hình. Nếu xấp xỉ sai số chênh lệch bằng căn tổng bình phương hai stderr, IFEval có stderr chênh lệch khoảng 5,01 điểm phần trăm; GSM8K khoảng 3,41 và MMLU khoảng 2,53. Không delta nào vượt khoảng hai lần các ước lượng này, nên chưa đủ cơ sở khẳng định DPO cải thiện benchmark. Đây là xấp xỉ độc lập; hai mô hình được chấm trên cùng câu hỏi nên kiểm định cặp theo từng câu sẽ phù hợp hơn nếu cần kết luận thống kê chặt chẽ. Không có dấu hiệu alignment tax trên GSM8K trong lượt này vì điểm không giảm, nhưng cũng chưa chứng minh DPO nâng năng lực toán. Global-MMLU-vi giữ nguyên và thấp, nên cần đọc thêm các ví dụ sai; preference tuning không tự bổ sung kiến thức. Giới hạn 10 của MMLU áp dụng cho mỗi môn, không phải 10 câu tổng cộng. Kết quả này phù hợp với NB4 ở mức chưa phát hiện khác biệt rõ ràng: win rate 48% có CI chứa 50%, trong khi các delta benchmark đều nhỏ so với nhiễu. IFEval đo làm theo chỉ dẫn, GSM8K đo toán tiếng Anh, MMLU-vi đo kiến thức tiếng Việt; chúng không thể thay thế nhau hoặc thay thế đánh giá an toàn. Để kết luận mạnh hơn cần tăng số mẫu, kiểm tra đáp án từng câu và chạy thêm seed; ở đây báo đúng số đo thay vì gọi các thay đổi nhỏ là cải thiện chắc chắn.
+
 ## 8. Biến thể loss
 
 | Loss | Held-out accuracy | Margin | Mean chars |
 | --- | --- | --- | --- |
+| dpo | 0.6800 | 0.0237 | 460.7000 |
+| rpo | 0.6500 | 0.0353 | 433.6000 |
 | dpo_norm | 0.6400 | 0.0093 | 458.6500 |
 | ld_dpo | 0.5600 | 0.0223 | 461.3500 |
 | orpo | 0.6600 | 0.0152 | 467.4000 |
 
 
-Trong ba dòng có số liệu, **ORPO dài nhất** (467,4 ký tự). Thiếu DPO/RPO trong bảng hiện tại nên chưa xác định biến thể thay đổi nhiều nhất so với baseline DPO cùng ngân sách; không yêu cầu trọn bonus so sánh năm biến thể. DPO-norm chuẩn hoá log-prob theo token, LD-DPO giảm trọng số phần vượt độ dài chung, ORPO kết hợp NLL và odds-ratio không dùng reference. Không so margin tuyệt đối giữa các loss vì khác thang đo.
+Đã khôi phục đủ năm dòng trong `adapters/variants/variants_summary.json` và cập nhật ảnh `screenshots/03b-variants.png`. DPO/RPO được đánh giá lại trên Kaggle từ adapter đã huấn luyện, với reference SFT tường minh, không huấn luyện lại. Bằng chứng và phương pháp nằm trong `data/eval/variant_metrics_recovery.json`; các giá trị đánh giá lại thay thế số liệu trước đó bị mất khỏi bảng. Ba dòng còn lại giữ kết quả Colab, nên cần lưu ý môi trường thư viện/GPU có thể gây chênh lệch nhỏ; chưa chạy đánh giá lại cả năm trong một môi trường chung.
+
+**RPO thay đổi độ dài nhiều nhất so với baseline DPO cùng ngân sách:** giảm từ 460,7 xuống 433,6 ký tự, tức giảm 27,1 ký tự (khoảng 5,9%). DPO-norm giảm 2,05 ký tự, LD-DPO tăng 0,65 ký tự, ORPO tăng 6,7 ký tự. **ORPO dài nhất** (467,4 ký tự), nhưng không phải thay đổi lớn nhất so DPO. RPO thêm NLL chosen vào objective nên có thể kéo mô hình về cách diễn đạt của chosen, thay vì chỉ mở rộng chênh lệch chosen/rejected; tương quan độ dài của dữ liệu và số mẫu probe nhỏ cũng ảnh hưởng. Đây là giải thích theo cơ chế, chưa chứng minh nguyên nhân từ một seed. DPO-norm chuẩn hoá log-prob theo token, LD-DPO giảm trọng số phần vượt độ dài chung, ORPO kết hợp NLL và odds-ratio không dùng reference. Không so margin tuyệt đối giữa các loss vì khác thang đo.
+
+DPO-norm và LD-DPO có chosen reward âm, rejected âm hơn nên margin dương phù hợp likelihood displacement. Với DPO/RPO đánh giá lại, cả chosen và rejected đều dương; chỉ một điểm cuối không đủ mô tả diễn biến toàn bộ đường reward. Accuracy cao nhất trong bảng là DPO 68%; không suy ra chất lượng hội thoại tốt nhất chỉ từ metric ưu tiên này. Độ dài được đo trên cùng 20 prompt probe của held-out, mỗi đầu ra giới hạn 256 token.
 
 ## Bonus NB5 — Xuất GGUF và so sánh đầu ra
 
@@ -174,7 +194,7 @@ Trong ba dòng có số liệu, **ORPO dài nhất** (467,4 ký tự). Thiếu D
 
 ## Phạm vi kiểm tra và phần chưa hoàn thành
 
-NB0–NB4 và NB5 có notebook giữ output, không có cell báo lỗi. Bốn ảnh bắt buộc và ảnh smoke GGUF đã có. Benchmark, GRPO và β-sweep chưa hoàn thành nên không yêu cầu điểm các mục đó. Đã chạy `scripts/verify.py` trong Colab nơi có mô hình SFT tham chiếu; kiểm tra phần bắt buộc kết thúc với exit code 0. Output được lưu trong `submission/verify-output.txt`. Repo tải về không chứa trọng số lớn và adapter trỏ đến đường dẫn mô hình tạm Colab, nên verify trên máy chỉ có bằng chứng sẽ báo thiếu mô hình; cần khôi phục mô hình từ adapter SFT trước khi kiểm tra lại. Bằng chứng verify không đồng nghĩa đã kiểm chứng toàn bộ pipeline từ môi trường sạch. Dấu tick variants của verifier chỉ xác nhận có JSON, không xác nhận đủ năm dòng; phần này vẫn chưa hoàn thành.
+NB0–NB4 và NB5 có notebook giữ output, không có cell báo lỗi. Bốn ảnh bắt buộc và ảnh smoke GGUF đã có. Benchmark đã hoàn thành trên Kaggle, có số liệu, ảnh và notebook output. GRPO và β-sweep chưa hoàn thành nên không yêu cầu điểm hai mục đó. Đã chạy `scripts/verify.py` trong Colab nơi có mô hình SFT tham chiếu; kiểm tra phần bắt buộc kết thúc với exit code 0. Output được lưu trong `submission/verify-output.txt`. Repo tải về không chứa trọng số lớn và adapter dùng đường dẫn runtime của môi trường chạy, nên verify trên máy chỉ có bằng chứng sẽ báo thiếu mô hình; cần khôi phục mô hình từ adapter SFT trước khi kiểm tra lại. Bằng chứng verify không đồng nghĩa đã kiểm chứng toàn bộ pipeline từ môi trường sạch. Variants hiện có đủ năm dòng, biểu đồ và bằng chứng đánh giá lại DPO/RPO trên Kaggle; notebook Colab cũ chỉ chứa output của ba biến thể còn lại, vì vậy đọc kết hợp với file recovery.
 
 
 ## HF Hub — công bố adapter và tái sử dụng (+3)
@@ -188,11 +208,11 @@ Repo chứa adapter DPO ở thư mục gốc và adapter SFT trong `sft_adapter/
 ## Danh sách bonus thực tế (cập nhật)
 
 
-- [ ] NB3b — đủ 5 biến thể (+8)
+- [x] NB3b — đủ 5 biến thể và phân tích thay đổi độ dài (+8)
 
 - [x] NB5 — GGUF (+4)
 
-- [ ] NB6 — benchmark (+6)
+- [x] NB6 — benchmark với chat template và phân tích stderr (+6)
 
 - [ ] NB7 — GRPO (+8)
 

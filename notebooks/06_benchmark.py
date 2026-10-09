@@ -42,6 +42,17 @@ assert torch.cuda.is_available()
 assert C.SFT_MERGED.exists() and C.DPO_ADAPTER.exists(), "Run NB1 + NB3 first"
 C.ensure_dirs()
 
+# lm-eval loads its own tokenizer in another process, so persist the template.
+from transformers import AutoTokenizer
+benchmark_tokenizer = AutoTokenizer.from_pretrained(str(C.SFT_MERGED))
+if not benchmark_tokenizer.chat_template:
+    base_tokenizer = AutoTokenizer.from_pretrained(C.BASE_MODEL)
+    assert benchmark_tokenizer.get_vocab() == base_tokenizer.get_vocab(), "Tokenizer vocabulary mismatch; restore original tokenizer files"
+    assert base_tokenizer.chat_template, "Base tokenizer has no chat template"
+    benchmark_tokenizer.chat_template = base_tokenizer.chat_template
+    benchmark_tokenizer.save_pretrained(str(C.SFT_MERGED))
+    print("Saved missing SFT chat template for lm-eval subprocesses")
+
 BIG = C.COMPUTE_TIER == "BIGGPU"
 # name: (task, num_fewshot, limit per subtask or None for all, primary metric)
 BENCHMARKS = {
@@ -49,7 +60,7 @@ BENCHMARKS = {
     "GSM8K": ("gsm8k", 5, None if BIG else 250, "exact_match,flexible-extract"),
     "Global-MMLU-vi": ("global_mmlu_full_vi", 0, 40 if BIG else 10, "acc,none"),
 }
-DTYPE = "bfloat16" if torch.cuda.is_bf16_supported() else "float16"
+DTYPE = "bfloat16" if torch.cuda.get_device_capability(0)[0] >= 8 and torch.cuda.is_bf16_supported() else "float16"
 BATCH = os.environ.get("BENCH_BATCH_SIZE", "auto" if BIG else "1")
 for name, (task, shots, limit, _metric) in BENCHMARKS.items():
     print(f"{name:15s} task={task} fewshot={shots} limit/subtask={limit or 'all'}")
