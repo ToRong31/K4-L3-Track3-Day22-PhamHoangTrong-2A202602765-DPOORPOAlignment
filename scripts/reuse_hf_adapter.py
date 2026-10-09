@@ -28,6 +28,13 @@ def main():
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=str(snapshot / 'sft_adapter'), max_seq_length=768, load_in_4bit=True,
         )
+        if not tokenizer.chat_template:
+            from transformers import AutoTokenizer
+            config = json.loads((snapshot / 'sft_adapter/adapter_config.json').read_text())
+            original = AutoTokenizer.from_pretrained(config['base_model_name_or_path'])
+            assert tokenizer.get_vocab() == original.get_vocab(), 'Tokenizer mismatch'
+            assert original.chat_template, 'Missing base chat template'
+            tokenizer.chat_template = original.chat_template
         model.save_pretrained_merged(str(sft), tokenizer, save_method='merged_16bit')
         del model, tokenizer
         import gc
@@ -35,12 +42,18 @@ def main():
         torch.cuda.empty_cache()
     dpo.mkdir(exist_ok=True)
     for p in snapshot.iterdir():
-        if p.is_file() and (p.suffix in ('.json', '.safetensors') or p.name == 'tokenizer.model'):
+        if p.is_file() and p.suffix in ('.json', '.safetensors', '.jinja', '.model'):
             shutil.copy2(p, dpo / p.name)
     cfg = json.loads((dpo / 'adapter_config.json').read_text(encoding='utf-8'))
     cfg['base_model_name_or_path'] = str(sft)
     (dpo / 'adapter_config.json').write_text(json.dumps(cfg, indent=2), encoding='utf-8')
     model, tokenizer = FastLanguageModel.from_pretrained(model_name=str(dpo), max_seq_length=768, load_in_4bit=True)
+    if not tokenizer.chat_template:
+        from transformers import AutoTokenizer
+        original = AutoTokenizer.from_pretrained(str(sft))
+        assert tokenizer.get_vocab() == original.get_vocab(), 'Tokenizer mismatch'
+        assert original.chat_template, 'Missing SFT chat template'
+        tokenizer.chat_template = original.chat_template
     FastLanguageModel.for_inference(model)
     prompt = tokenizer.apply_chat_template([{'role': 'user', 'content': args.prompt}],
         tokenize=False, add_generation_prompt=True, enable_thinking=False)

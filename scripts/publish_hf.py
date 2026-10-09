@@ -33,7 +33,7 @@ def main():
     for name, destination in (('dpo', staging), ('sft-mini', staging / 'sft_adapter')):
         destination.mkdir(exist_ok=True)
         for p in (root / 'adapters' / name).iterdir():
-            if p.is_file() and (p.suffix in ('.json', '.safetensors') or p.name == 'tokenizer.model'):
+            if p.is_file() and (p.suffix in ('.json', '.safetensors', '.jinja', '.model')):
                 shutil.copy2(p, destination / p.name)
     cfg = json.loads((staging / 'adapter_config.json').read_text(encoding='utf-8'))
     cfg['base_model_name_or_path'] = './sft-merged'
@@ -92,7 +92,7 @@ Do not infer a redistribution license for preference data or derivative weights.
         path = root / folder
         if path.exists():
             api.upload_folder(repo_id=transfer_id, repo_type='dataset', folder_path=str(path), path_in_repo=folder,
-                allow_patterns=['*.safetensors', '*.json', '*.jsonl', '*.parquet', '*.ipynb', '*.md', '*.txt', '*.png', '*.jpg'],
+                allow_patterns=['*.safetensors', '*.json', '*.jsonl', '*.parquet', '*.ipynb', '*.md', '*.txt', '*.png', '*.jpg', '*.jinja', '*.model'],
                 ignore_patterns=['**/.ipynb_checkpoints/**', '**/ref/**', '**/*-checkpoints/**'],
                 commit_message=f'Transfer Lab22 {folder} for Kaggle continuation')
     expected = {'adapters/sft-mini/adapter_model.safetensors', 'adapters/dpo/adapter_model.safetensors', 'data/pref/eval.parquet'}

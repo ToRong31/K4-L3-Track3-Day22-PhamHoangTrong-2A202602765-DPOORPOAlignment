@@ -22,6 +22,14 @@ def load_model(name: str | Path, max_len: int = C.MAX_LEN, load_in_4bit: bool = 
         dtype=None,
         load_in_4bit=load_in_4bit,
     )
+    if not tokenizer.chat_template:
+        from transformers import AutoTokenizer
+        original = AutoTokenizer.from_pretrained(C.BASE_MODEL)
+        if tokenizer.get_vocab() != original.get_vocab():
+            raise ValueError("Missing chat template and tokenizer vocabulary differs from base; restore original tokenizer files.")
+        if not original.chat_template:
+            raise ValueError(f"Base tokenizer has no chat template: {C.BASE_MODEL}")
+        tokenizer.chat_template = original.chat_template
     # Qwen3 ships a dedicated pad token. Reusing EOS as pad would mask the
     # end-of-turn token out of the loss and teach the model never to stop.
     if tokenizer.pad_token is None or tokenizer.pad_token_id == tokenizer.eos_token_id:

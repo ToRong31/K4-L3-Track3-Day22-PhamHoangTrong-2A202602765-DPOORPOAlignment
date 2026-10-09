@@ -61,7 +61,9 @@ def render():
              'print("Exit code:", result.returncode)\n'
              'status = WORK / "data/eval/run_status.json"\n'
              'if status.exists():\n'
-             '    print({k:v["status"] for k,v in json.loads(status.read_text()).items()})\n'),
+             '    print({k:v["status"] for k,v in json.loads(status.read_text()).items()})\n'
+             'if ONLY == "variants-recovery" and result.returncode != 0:\n'
+             '    raise RuntimeError("Khôi phục variants thất bại; xem traceback phía trên. Chưa cập nhật đủ 5 dòng.")\n'),
         code('from IPython.display import FileLink, display\n'
              'sys.path.insert(0, str(WORK / "scripts"))\n'
              'from run_colab import export_submission\n'
@@ -72,7 +74,7 @@ def render():
              'with zipfile.ZipFile(continue_zip, "w", zipfile.ZIP_DEFLATED) as z:\n'
              '    for folder in ("adapters", "data", "notebooks", "submission"):\n'
              '        for p in (WORK / folder).rglob("*"):\n'
-             '            if p.is_file() and p.suffix in (".safetensors", ".json", ".jsonl", ".parquet", ".ipynb", ".md", ".txt", ".png", ".jpg"):\n'
+             '            if p.is_file() and p.suffix in (".safetensors", ".json", ".jsonl", ".parquet", ".ipynb", ".md", ".txt", ".png", ".jpg", ".jinja", ".model"):\n'
              '                z.write(p, p.relative_to(WORK).as_posix())\n'
              'display(FileLink(str(continue_zip)))\n'),
         md('Trước khi dừng, tải zip và lưu phiên notebook/output theo chức năng Save Version của Kaggle. '

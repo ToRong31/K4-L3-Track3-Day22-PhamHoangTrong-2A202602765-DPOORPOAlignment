@@ -36,6 +36,9 @@ def main():
     if not backup.exists():
         backup.write_text(json.dumps(results, indent=2), encoding='utf-8')
     eval_ds = Dataset.from_parquet(str(C.PREF_DIR / 'eval.parquet'))
+    # Unsloth's DPOTrainer requires train_dataset even for evaluate-only usage.
+    train_ds = Dataset.from_parquet(str(C.PREF_DIR / 'train.parquet'))
+    train_ds = train_ds.select(range(min(C.TIER.variant_train, len(train_ds))))
     probes = [r['prompt'][0]['content'] for r in eval_ds.select(range(min(20, len(eval_ds))))]
     for name in ('dpo', 'rpo'):
         if name in results:
@@ -53,7 +56,7 @@ def main():
             args=MD.dpo_config(C.VARIANTS_DIR / f'{name}-recovery-eval',
                                loss_type=['sigmoid', 'sft'] if name == 'rpo' else ['sigmoid'],
                                eval_strategy='no', precompute_ref_log_probs=False, **overrides),
-            eval_dataset=eval_ds, processing_class=tokenizer,
+            train_dataset=train_ds, eval_dataset=eval_ds, processing_class=tokenizer,
         )
         ev = trainer.evaluate()
         outputs = MD.generate(trainer.model, tokenizer, probes, max_new_tokens=256)
