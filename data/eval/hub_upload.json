@@ -1,0 +1,8 @@
+{
+  "adapter": "trongph/lab22-dpo-experimental",
+  "reference": "reconstruct from sft_adapter/ using reuse_hf_adapter.py",
+  "model_url": "https://huggingface.co/trongph/lab22-dpo-experimental",
+  "transfer_dataset": "trongph/lab22-continue",
+  "upload_verified": true,
+  "reuse_gpu_tested": false
+}

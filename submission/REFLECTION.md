@@ -177,7 +177,15 @@ Trong ba dòng có số liệu, **ORPO dài nhất** (467,4 ký tự). Thiếu D
 NB0–NB4 và NB5 có notebook giữ output, không có cell báo lỗi. Bốn ảnh bắt buộc và ảnh smoke GGUF đã có. Benchmark, GRPO và β-sweep chưa hoàn thành nên không yêu cầu điểm các mục đó. Đã chạy `scripts/verify.py` trong Colab nơi có mô hình SFT tham chiếu; kiểm tra phần bắt buộc kết thúc với exit code 0. Output được lưu trong `submission/verify-output.txt`. Repo tải về không chứa trọng số lớn và adapter trỏ đến đường dẫn mô hình tạm Colab, nên verify trên máy chỉ có bằng chứng sẽ báo thiếu mô hình; cần khôi phục mô hình từ adapter SFT trước khi kiểm tra lại. Bằng chứng verify không đồng nghĩa đã kiểm chứng toàn bộ pipeline từ môi trường sạch. Dấu tick variants của verifier chỉ xác nhận có JSON, không xác nhận đủ năm dòng; phần này vẫn chưa hoàn thành.
 
 
-## Danh sách bonus thực tế
+## HF Hub — công bố adapter và tái sử dụng (+3)
+
+Đã công bố repo Model [trongph/lab22-dpo-experimental](https://huggingface.co/trongph/lab22-dpo-experimental). Bằng chứng upload nằm ở `data/eval/hub_upload.json`. Đã kiểm tra truy cập công khai và các file cần thiết trên HF: `README.md`, `adapter_config.json`, `adapter_model.safetensors`, `sft_adapter/adapter_model.safetensors` và `reuse_hf_adapter.py`. Revision kiểm tra: `c99783435cebced0692eeedf641b06f869bffc2b`.
+
+Repo chứa adapter DPO ở thư mục gốc và adapter SFT trong `sft_adapter/`. Model card ghi mô hình gốc Qwen3-4B-Instruct-2507, SFT trên 1.000 mẫu Alpaca tiếng Việt, preference 800 train/100 held-out, β=0,1, learning rate 5e-6, một epoch, seed 42, reward accuracy held-out 65% và win rate 48% với CI [41%, 55%]. Vì khoảng này chứa 50%, không tuyên bố DPO tốt hơn SFT.
+
+Để tái sử dụng, script `reuse_hf_adapter.py` khôi phục mô hình SFT bằng cách gộp adapter SFT vào base, rồi nạp DPO trên mô hình SFT đó. Không nạp DPO trực tiếp trên base gốc vì sẽ sai reference. Script yêu cầu GPU CUDA, các thư viện của lab và dung lượng tạm để gộp mô hình. Upload và sự tồn tại của file đã được kiểm tra; chưa kiểm thử suy luận GPU sau khi tải từ HF (`reuse_gpu_tested: false`). Repo dataset riêng tư `trongph/lab22-continue` dùng chuyển adapter/kết quả sang Kaggle, không thay thế repo Model công khai dùng làm bằng chứng bonus.
+
+## Danh sách bonus thực tế (cập nhật)
 
 
 - [ ] NB3b — đủ 5 biến thể (+8)
@@ -192,4 +200,4 @@ NB0–NB4 và NB5 có notebook giữ output, không có cell báo lỗi. Bốn �
 
 - [ ] Chấm chéo (+4)
 
-- [ ] HF Hub (+3)
+- [x] HF Hub — adapter + model card + hướng dẫn tái sử dụng (+3)

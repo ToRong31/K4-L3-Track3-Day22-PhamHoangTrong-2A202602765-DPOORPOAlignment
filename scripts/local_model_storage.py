@@ -90,7 +90,7 @@ def patch_workspace(root, merged):
     for cfg in (root / 'adapters').rglob('adapter_config.json'):
         data = json.loads(cfg.read_text(encoding='utf-8'))
         base = str(data.get('base_model_name_or_path', ''))
-        if base in (str(old), str(merged), 'models/sft-merged'):
+        if base in (str(old), str(merged), 'models/sft-merged') or base.replace('\\', '/').endswith('/models/sft-merged'):
             data['base_model_name_or_path'] = str(merged)
             cfg.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
 
