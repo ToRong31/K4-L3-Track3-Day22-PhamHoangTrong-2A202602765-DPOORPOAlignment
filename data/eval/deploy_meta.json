@@ -1,0 +1,16 @@
+{
+  "compute_tier": "T4",
+  "base_model": "unsloth/Qwen3-4B-Instruct-2507-unsloth-bnb-4bit",
+  "adapter": "adapters/dpo",
+  "adapter_base": "/content/lab22-runtime/models/sft-merged",
+  "gguf_path": "/content/lab22-runtime/gguf_gguf/sft-merged.Q4_K_M.gguf",
+  "gguf_size_mb": 2497.3,
+  "quantization": "q4_k_m",
+  "smoke_prompt": "Giải thích ngắn gọn (3 câu) cách thuật toán Bubble sort hoạt động.",
+  "chat_template_kwargs": {
+    "enable_thinking": false
+  },
+  "max_new_tokens": 160,
+  "hf_answer": "</tool_call>\n\n</tool_call>\n\nThuật toán Bubble Sort hoạt động bằng cách so sánh các cặp phần tử liên tiếp trong danh sách và đổi chỗ chúng nếu chúng không ở đúng thứ tự. Quá trình này lặp đi lặp lại cho đến khi không còn có cặp phần tử nào cần được đổi chỗ, nghĩa là danh sách đã được sắp xếp.",
+  "gguf_answer": "</tool_call>\n\n</tool_call>\n\nThuật toán Bubble Sort hoạt động bằng cách so sánh các cặp phần tử liên tiếp trong danh sách và hoán đổi chúng nếu chúng không ở vị trí đúng. Quá trình này lặp đi lặp lại cho đến khi không còn hoán đổi nào có thể thực hiện được, nghĩa là danh sách đã được sắp xếp."
+}

@@ -63,6 +63,28 @@ def run_lm_eval(label: str, task: str, shots: int, limit: int | None) -> dict:
     if label == "dpo":
         model_args += f",peft={C.DPO_ADAPTER}"
     out_dir = C.EVAL_DIR / "lm_eval" / f"{label}-{task}"
+    # Resume at completed evaluation boundaries, including results from older runs.
+    # Require the same model paths, task, limit, few-shot count and chat template.
+    metric = next(v[3] for v in BENCHMARKS.values() if v[0] == task)
+    for saved in sorted(out_dir.glob("**/results*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            cached = json.loads(saved.read_text(encoding="utf-8"))
+            cfg = cached.get("config", {})
+            task_cfg = cached.get("configs", {})
+            matching_tasks = [v for k, v in task_cfg.items() if k == task or k.startswith(task + "_")]
+            shot_counts = [v.get("num_fewshot", 0) for v in matching_tasks]
+            args_match = cfg.get("model_args") == model_args
+            if isinstance(cfg.get("model_args"), dict):
+                wanted = dict(item.split("=", 1) for item in model_args.split(","))
+                args_match = all(str(cfg["model_args"].get(k)) == v for k, v in wanted.items())
+                args_match = args_match and (label == "dpo" or not cfg["model_args"].get("peft"))
+            if (args_match and cfg.get("limit") == limit and cfg.get("apply_chat_template")
+                    and shot_counts and all(n == shots for n in shot_counts)):
+                score(cached, task, metric)  # reject incomplete results
+                print(f"RESUME: giữ kết quả {label}/{task}: {saved}", flush=True)
+                return cached
+        except (ValueError, KeyError, TypeError):
+            continue
     cmd = [
         "lm_eval", "--model", "hf", "--model_args", model_args,
         "--tasks", task, "--num_fewshot", str(shots),
@@ -101,6 +123,9 @@ for name, (task, shots, limit, metric) in BENCHMARKS.items():
         row[label], row[f"{label}_stderr"] = value, err
     row["delta"] = row["dpo"] - row["sft"]
     rows.append(row)
+    (C.EVAL_DIR / "benchmark_progress.json").write_text(
+        json.dumps({"compute_tier": C.COMPUTE_TIER, "results": rows}, indent=2), encoding="utf-8"
+    )
     print(row)
 
 # %% [markdown]

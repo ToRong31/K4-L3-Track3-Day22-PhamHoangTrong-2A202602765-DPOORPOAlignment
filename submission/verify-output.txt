@@ -1,0 +1,14 @@
+==> Verifying submission at /content/drive/.shortcut-targets-by-id/1uzQRFqfWIn2JNHdv4ciuZKW12TZV7Duq/Lab22_PhamHoangTrong_2A202602765
+
+Optional (bonus):
+  ✓ NB3b variants
+  ✓ NB5 GGUF
+  · NB6 benchmark
+  · NB7 GRPO
+  · β-sweep
+    GGUF files: none found
+
+✓ Core checks passed. Push your repo and paste the URL into the LMS.
+
+
+Exit code: 0
